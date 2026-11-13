@@ -6,6 +6,7 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using Microsoft.Win32;
 using System.Windows.Forms;
 
 namespace Marco_fotos
@@ -62,6 +63,16 @@ namespace Marco_fotos
                 var menu = new ContextMenuStrip();
                 menu.Items.Add("Anterior", null, (s, ev) => { Anterior(); ReiniciarTimer(); });
                 menu.Items.Add("Siguiente", null, (s, ev) => { Siguiente(); ReiniciarTimer(); });
+                menu.Items.Add(new ToolStripSeparator());
+
+                var itemInicio = new ToolStripMenuItem("Iniciar con Windows") { Checked = IniciaConWindows() };
+                itemInicio.Click += (s, ev) =>
+                {
+                    itemInicio.Checked = !itemInicio.Checked;
+                    ConfigurarInicio(itemInicio.Checked);
+                };
+                menu.Items.Add(itemInicio);
+
                 menu.Items.Add("Salir", null, (s, ev) => Close());
                 ContextMenuStrip = menu;
 
@@ -98,6 +109,30 @@ namespace Marco_fotos
         private void Siguiente() { MostrarImagen(indice + 1, 1); }
         private void Anterior() { MostrarImagen(indice - 1, -1); }
         private void ReiniciarTimer() { timer.Stop(); timer.Start(); }
+
+        // ---- Iniciar con Windows (registro del usuario actual, no requiere administrador) ----
+        private const string NombreApp = "MarcoFotos";
+        private const string RutaRun = @"Software\Microsoft\Windows\CurrentVersion\Run";
+
+        private static bool IniciaConWindows()
+        {
+            using (var k = Registry.CurrentUser.OpenSubKey(RutaRun))
+            {
+                return k != null && k.GetValue(NombreApp) != null;
+            }
+        }
+
+        private static void ConfigurarInicio(bool activar)
+        {
+            using (var k = Registry.CurrentUser.OpenSubKey(RutaRun, true))
+            {
+                if (k == null) return;
+                if (activar)
+                    k.SetValue(NombreApp, "\"" + Application.ExecutablePath + "\"");
+                else
+                    k.DeleteValue(NombreApp, false);
+            }
+        }
 
         // Crea un bitmap del tamaño fijo del marco y dibuja la foto centrada,
         // conservando su proporción (sin deformarla).
